@@ -1,0 +1,15 @@
+/*
+Theme Name: Volkmann Express
+Theme URI: https://volkmannexpress.com
+Author: Yohanorg Limited
+Author URI: https://yohanorg.com
+Description: A modern, cutting-edge custom WordPress theme for Volkmann Express — enterprise technology partner.
+Version: 1.0.0
+License: GNU General Public License v2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: volkmann-express
+Tags: business, technology, dark-mode, responsive, custom-menu, featured-images
+*/
+
+/* Base reset — all real styling lives in assets/css/main.css */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
