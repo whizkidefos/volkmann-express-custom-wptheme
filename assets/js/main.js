@@ -66,40 +66,150 @@
 
   /* ─── 3. MOBILE NAV ──────────────────────────────────── */
   const MobileNav = (() => {
-    const BURGER = document.getElementById('ve-hamburger');
-    const NAV    = document.getElementById('ve-mobile-nav');
-    let   open   = false;
+    const BURGER   = document.getElementById('ve-hamburger');
+    const NAV      = document.getElementById('ve-mobile-nav');
+    const PANEL    = NAV?.querySelector('.ve-mobile-nav__panel');
+    const BACKDROP = NAV?.querySelector('.ve-mobile-nav__backdrop');
+    const CLOSE    = document.getElementById('ve-mobile-close');
+    let   open     = false;
 
     function toggle(force) {
       open = (force !== undefined) ? force : !open;
-      if (NAV)    NAV.classList.toggle('open', open);
+      
+      if (NAV) {
+        NAV.classList.toggle('open', open);
+        NAV.setAttribute('aria-hidden', !open);
+      }
       if (BURGER) {
         BURGER.classList.toggle('open', open);
         BURGER.setAttribute('aria-expanded', open);
+        BURGER.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
       }
+      
+      // Prevent body scroll when open
       document.body.style.overflow = open ? 'hidden' : '';
+
+      // Focus management
+      if (open && CLOSE) {
+        setTimeout(() => CLOSE.focus(), 100);
+      } else if (!open && BURGER) {
+        BURGER.focus();
+      }
+    }
+
+    function initDropdowns() {
+      const parentItems = NAV?.querySelectorAll('.menu-item-has-children, .ve-nav__item--has-children');
+      if (!parentItems) return;
+
+      parentItems.forEach(item => {
+        const link = item.querySelector(':scope > a');
+        const submenu = item.querySelector(':scope > .sub-menu, :scope > .ve-nav__dropdown');
+        if (!link || !submenu) return;
+
+        // Make the link toggle the dropdown
+        link.addEventListener('click', e => {
+          const href = link.getAttribute('href');
+          // If no real href, just toggle
+          if (!href || href === '#' || href === '' || href === window.location.href) {
+            e.preventDefault();
+            toggleDropdown(item, parentItems);
+          } else {
+            // Has real href — toggle dropdown, don't navigate immediately
+            e.preventDefault();
+            toggleDropdown(item, parentItems);
+          }
+        });
+      });
+    }
+
+    function toggleDropdown(item, allItems) {
+      const isExpanded = item.classList.contains('is-expanded');
+      
+      // Close all other dropdowns
+      allItems.forEach(other => {
+        if (other !== item) {
+          other.classList.remove('is-expanded');
+        }
+      });
+
+      // Toggle this one
+      item.classList.toggle('is-expanded', !isExpanded);
+    }
+
+    function initThemeToggle() {
+      const themeBtns = NAV?.querySelectorAll('.ve-mobile-theme-btn');
+      if (!themeBtns) return;
+
+      themeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const theme = btn.dataset.theme;
+          const html = document.documentElement;
+          
+          if (theme === 'dark') {
+            html.classList.add('dark');
+            localStorage.setItem('ve_theme', 'dark');
+          } else {
+            html.classList.remove('dark');
+            localStorage.setItem('ve_theme', 'light');
+          }
+        });
+      });
     }
 
     function init() {
-      if (!BURGER) return;
-      BURGER.addEventListener('click', () => toggle());
-      // Close on overlay click
-      if (NAV) {
-        NAV.addEventListener('click', e => {
-          if (e.target === NAV) toggle(false);
+      if (!NAV) return;
+
+      // Set initial aria state
+      NAV.setAttribute('aria-hidden', 'true');
+
+      // Hamburger opens nav
+      BURGER?.addEventListener('click', () => toggle(true));
+
+      // Close button closes nav
+      CLOSE?.addEventListener('click', () => toggle(false));
+
+      // Backdrop click closes nav
+      BACKDROP?.addEventListener('click', () => toggle(false));
+
+      // Close on nav link click (submenu items)
+      NAV.querySelectorAll('.sub-menu a, .ve-nav__sublink').forEach(a => {
+        a.addEventListener('click', () => {
+          setTimeout(() => toggle(false), 100);
         });
-      }
-      // Close on nav link click
-      document.querySelectorAll('#ve-mobile-nav a').forEach(a => {
-        a.addEventListener('click', () => toggle(false));
       });
-      // Escape key
+
+      // Close on CTA button click
+      NAV.querySelector('.ve-btn--primary')?.addEventListener('click', () => {
+        setTimeout(() => toggle(false), 100);
+      });
+
+      // Logo click closes nav
+      NAV.querySelector('.ve-mobile-nav__header .ve-logo')?.addEventListener('click', () => {
+        setTimeout(() => toggle(false), 100);
+      });
+
+      // Escape key closes nav
       document.addEventListener('keydown', e => {
         if (e.key === 'Escape' && open) toggle(false);
       });
+
+      // Close on resize to desktop
+      let resizeTimer;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          if (window.innerWidth >= 961 && open) toggle(false);
+        }, 100);
+      });
+
+      // Initialize dropdown accordions
+      initDropdowns();
+
+      // Initialize mobile theme toggle
+      initThemeToggle();
     }
 
-    return { init };
+    return { init, toggle, isOpen: () => open };
   })();
 
   /* ─── 4. THREE.JS HERO CANVAS ────────────────────────── */
@@ -922,117 +1032,169 @@
 
 /* ═══════════════════════════════════════════════════════════
    THREE.JS GLOBE CANVAS (home differentiators section)
+   Modernized: Holographic globe with data streams & pulse effects
    ═══════════════════════════════════════════════════════════ */
 (function initGlobe() {
   const canvas = document.getElementById('ve-globe-canvas');
   if (!canvas || typeof THREE === 'undefined') return;
 
-  const W = canvas.offsetWidth  || 340;
-  const H = canvas.offsetHeight || 340;
+  const W = canvas.offsetWidth  || 420;
+  const H = canvas.offsetHeight || 420;
 
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   renderer.setSize(W, H);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
   const scene  = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 100);
-  camera.position.set(0, 0, 4.5);
+  const camera = new THREE.PerspectiveCamera(40, W / H, 0.1, 100);
+  camera.position.set(0, 0, 5);
 
-  // Globe sphere — wireframe
-  const globeGeo = new THREE.SphereGeometry(1.4, 32, 32);
-  const globeMat = new THREE.MeshBasicMaterial({
-    color: 0xF97316, wireframe: true, opacity: 0.12, transparent: true,
+  // Colors
+  const ORANGE = 0xF97316;
+  const BLUE   = 0x2563EB;
+  const CYAN   = 0x06B6D4;
+  const DARK   = 0x0A0A0F;
+
+  // ─── Core globe with gradient-like effect ─────────────────
+  const coreGeo = new THREE.SphereGeometry(1.3, 64, 64);
+  const coreMat = new THREE.MeshStandardMaterial({
+    color: DARK, metalness: 0.95, roughness: 0.05,
   });
-  const globe = new THREE.Mesh(globeGeo, globeMat);
-  scene.add(globe);
+  const core = new THREE.Mesh(coreGeo, coreMat);
+  scene.add(core);
 
-  // Solid inner globe
-  const innerGeo = new THREE.SphereGeometry(1.35, 64, 64);
-  const innerMat = new THREE.MeshStandardMaterial({
-    color: 0x0A0A0F, metalness: 0.9, roughness: 0.2,
+  // ─── Holographic wireframe shell ──────────────────────────
+  const shellGeo = new THREE.IcosahedronGeometry(1.45, 2);
+  const shellMat = new THREE.MeshBasicMaterial({
+    color: ORANGE, wireframe: true, opacity: 0.15, transparent: true,
   });
-  scene.add(new THREE.Mesh(innerGeo, innerMat));
+  const shell = new THREE.Mesh(shellGeo, shellMat);
+  scene.add(shell);
 
-  // Latitude/longitude lines
-  function addLatLon(latCount, lonCount) {
-    const mat = new THREE.LineBasicMaterial({ color: 0x2563EB, opacity: 0.18, transparent: true });
-    for (let i = 0; i < latCount; i++) {
-      const lat = (i / latCount) * Math.PI - Math.PI / 2;
-      const pts = [];
-      for (let j = 0; j <= 64; j++) {
-        const lon = (j / 64) * Math.PI * 2;
-        pts.push(new THREE.Vector3(
-          1.42 * Math.cos(lat) * Math.cos(lon),
-          1.42 * Math.sin(lat),
-          1.42 * Math.cos(lat) * Math.sin(lon)
-        ));
-      }
-      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
-    }
-    for (let i = 0; i < lonCount; i++) {
-      const lon = (i / lonCount) * Math.PI * 2;
-      const pts = [];
-      for (let j = 0; j <= 64; j++) {
-        const lat = (j / 64) * Math.PI - Math.PI / 2;
-        pts.push(new THREE.Vector3(
-          1.42 * Math.cos(lat) * Math.cos(lon),
-          1.42 * Math.sin(lat),
-          1.42 * Math.cos(lat) * Math.sin(lon)
-        ));
-      }
-      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
-    }
-  }
-  addLatLon(8, 12);
+  // ─── Outer glow ring ──────────────────────────────────────
+  const glowRingGeo = new THREE.TorusGeometry(1.6, 0.008, 8, 128);
+  const glowRingMat = new THREE.MeshBasicMaterial({ color: CYAN, opacity: 0.4, transparent: true });
+  const glowRing = new THREE.Mesh(glowRingGeo, glowRingMat);
+  glowRing.rotation.x = Math.PI / 2;
+  scene.add(glowRing);
 
-  // Glowing dots at US city-like positions
-  const dotPositions = [
-    [38.9, -77.0],  // Bowie MD / DC area
-    [40.7, -74.0],  // New York
-    [34.0, -118.2], // Los Angeles
-    [41.8, -87.6],  // Chicago
-    [29.7, -95.3],  // Houston
-    [33.7, -84.3],  // Atlanta
-    [47.6, -122.3], // Seattle
-    [30.3, -81.6],  // Jacksonville
+  // ─── Latitude arcs (partial, modern look) ─────────────────
+  const arcMat = new THREE.LineBasicMaterial({ color: BLUE, opacity: 0.25, transparent: true });
+  [0.3, 0.6, -0.3, -0.6].forEach(yPos => {
+    const radius = Math.sqrt(1.35 * 1.35 - yPos * yPos);
+    const pts = [];
+    for (let i = 0; i <= 64; i++) {
+      const angle = (i / 64) * Math.PI * 1.5 - Math.PI * 0.25; // Partial arc
+      pts.push(new THREE.Vector3(Math.cos(angle) * radius, yPos, Math.sin(angle) * radius));
+    }
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), arcMat));
+  });
+
+  // ─── US city nodes with pulse effect ──────────────────────
+  const cityData = [
+    { lat: 38.9, lon: -77.0, name: 'DC' },
+    { lat: 40.7, lon: -74.0, name: 'NYC' },
+    { lat: 34.0, lon: -118.2, name: 'LA' },
+    { lat: 41.8, lon: -87.6, name: 'Chicago' },
+    { lat: 29.7, lon: -95.3, name: 'Houston' },
+    { lat: 33.7, lon: -84.3, name: 'Atlanta' },
+    { lat: 47.6, lon: -122.3, name: 'Seattle' },
+    { lat: 25.7, lon: -80.2, name: 'Miami' },
+    { lat: 42.3, lon: -71.0, name: 'Boston' },
+    { lat: 39.7, lon: -104.9, name: 'Denver' },
   ];
-  dotPositions.forEach(([lat, lon]) => {
+
+  const cityNodes = [];
+  cityData.forEach(({ lat, lon }, i) => {
     const phi   = (90 - lat) * (Math.PI / 180);
     const theta = (lon + 180) * (Math.PI / 180);
-    const r = 1.47;
+    const r = 1.38;
     const x = -r * Math.sin(phi) * Math.cos(theta);
     const y =  r * Math.cos(phi);
     const z =  r * Math.sin(phi) * Math.sin(theta);
-    const dot = new THREE.Mesh(
-      new THREE.SphereGeometry(0.035, 8, 8),
-      new THREE.MeshBasicMaterial({ color: 0xF97316 })
+
+    // Node dot
+    const node = new THREE.Mesh(
+      new THREE.SphereGeometry(0.04, 12, 12),
+      new THREE.MeshBasicMaterial({ color: ORANGE })
     );
-    dot.position.set(x, y, z);
-    scene.add(dot);
+    node.position.set(x, y, z);
+    node.userData = { baseScale: 1, phase: i * 0.5 };
+    scene.add(node);
+    cityNodes.push(node);
+
+    // Pulse ring around node
+    const pulse = new THREE.Mesh(
+      new THREE.RingGeometry(0.06, 0.08, 16),
+      new THREE.MeshBasicMaterial({ color: ORANGE, opacity: 0.5, transparent: true, side: THREE.DoubleSide })
+    );
+    pulse.position.set(x, y, z);
+    pulse.lookAt(0, 0, 0);
+    pulse.userData = { phase: i * 0.5 };
+    scene.add(pulse);
+    cityNodes.push(pulse);
   });
 
-  // Orbiting ring
-  const ringGeo = new THREE.TorusGeometry(1.9, 0.012, 8, 100);
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0xF97316, opacity: 0.35, transparent: true });
-  const ring = new THREE.Mesh(ringGeo, ringMat);
-  ring.rotation.x = Math.PI / 4;
-  scene.add(ring);
+  // ─── Data stream particles orbiting ───────────────────────
+  const streamCount = 60;
+  const streamGeo = new THREE.BufferGeometry();
+  const streamPos = new Float32Array(streamCount * 3);
+  const streamData = [];
+  for (let i = 0; i < streamCount; i++) {
+    const orbitRadius = 1.7 + Math.random() * 0.4;
+    const angle = Math.random() * Math.PI * 2;
+    const tilt = (Math.random() - 0.5) * 0.8;
+    streamPos[i * 3] = Math.cos(angle) * orbitRadius;
+    streamPos[i * 3 + 1] = tilt + Math.sin(angle) * 0.3;
+    streamPos[i * 3 + 2] = Math.sin(angle) * orbitRadius;
+    streamData.push({ angle, orbitRadius, tilt, speed: 0.3 + Math.random() * 0.4 });
+  }
+  streamGeo.setAttribute('position', new THREE.BufferAttribute(streamPos, 3));
+  const streamMat = new THREE.PointsMaterial({
+    size: 0.035, color: CYAN, transparent: true, opacity: 0.7,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  const streams = new THREE.Points(streamGeo, streamMat);
+  scene.add(streams);
 
-  // Lights
-  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-  const ptLight = new THREE.PointLight(0xF97316, 4, 12);
-  ptLight.position.set(3, 2, 3);
-  scene.add(ptLight);
-  const ptBlue = new THREE.PointLight(0x2563EB, 2, 10);
-  ptBlue.position.set(-3, -2, -2);
-  scene.add(ptBlue);
+  // ─── Orbiting satellite rings ─────────────────────────────
+  const rings = [];
+  [
+    { radius: 1.9, color: ORANGE, tiltX: Math.PI / 5, tiltY: 0.2 },
+    { radius: 2.1, color: BLUE, tiltX: -Math.PI / 4, tiltY: -0.3 },
+    { radius: 2.3, color: CYAN, tiltX: Math.PI / 6, tiltY: 0.5 },
+  ].forEach(({ radius, color, tiltX, tiltY }) => {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(radius, 0.012, 8, 100),
+      new THREE.MeshBasicMaterial({ color, opacity: 0.25, transparent: true })
+    );
+    ring.rotation.x = tiltX;
+    ring.rotation.y = tiltY;
+    ring.userData = { speedX: 0.1 + Math.random() * 0.1, speedY: 0.05 + Math.random() * 0.1 };
+    scene.add(ring);
+    rings.push(ring);
+  });
 
+  // ─── Lighting ─────────────────────────────────────────────
+  scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+  const keyLight = new THREE.PointLight(ORANGE, 4, 15);
+  keyLight.position.set(4, 3, 3);
+  scene.add(keyLight);
+  const fillLight = new THREE.PointLight(BLUE, 2.5, 12);
+  fillLight.position.set(-4, -2, 2);
+  scene.add(fillLight);
+  const rimLight = new THREE.PointLight(CYAN, 2, 10);
+  rimLight.position.set(0, 4, -3);
+  scene.add(rimLight);
+
+  // ─── Mouse interaction ────────────────────────────────────
   let mouseX = 0, mouseY = 0;
   document.addEventListener('mousemove', e => {
     mouseX = (e.clientX / window.innerWidth  - 0.5) * 2;
     mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
   });
 
+  // ─── Resize handler ───────────────────────────────────────
   window.addEventListener('resize', () => {
     const nW = canvas.offsetWidth;
     const nH = canvas.offsetHeight;
@@ -1042,15 +1204,56 @@
     camera.updateProjectionMatrix();
   });
 
+  // ─── Animation loop ───────────────────────────────────────
   (function animate(t) {
     requestAnimationFrame(animate);
     const elapsed = t * 0.001;
-    globe.rotation.y = elapsed * 0.15;
-    ring.rotation.z  = elapsed * 0.2;
-    camera.position.x += (mouseX * 0.3 - camera.position.x) * 0.04;
-    camera.position.y += (-mouseY * 0.2 - camera.position.y) * 0.04;
+
+    // Rotate core and shell
+    core.rotation.y = elapsed * 0.1;
+    shell.rotation.y = -elapsed * 0.08;
+    shell.rotation.x = Math.sin(elapsed * 0.2) * 0.05;
+
+    // Glow ring pulse
+    glowRing.scale.setScalar(1 + Math.sin(elapsed * 2) * 0.03);
+    glowRing.material.opacity = 0.3 + Math.sin(elapsed * 2) * 0.15;
+
+    // City node pulses
+    cityNodes.forEach((node, i) => {
+      if (node.geometry.type === 'SphereGeometry') {
+        node.scale.setScalar(1 + Math.sin(elapsed * 3 + node.userData.phase) * 0.2);
+      } else {
+        // Pulse ring
+        const scale = 1 + Math.sin(elapsed * 2 + node.userData.phase) * 0.5;
+        node.scale.setScalar(scale);
+        node.material.opacity = 0.6 - Math.sin(elapsed * 2 + node.userData.phase) * 0.4;
+      }
+    });
+
+    // Data streams orbit
+    const positions = streams.geometry.attributes.position.array;
+    streamData.forEach((d, i) => {
+      d.angle += d.speed * 0.01;
+      positions[i * 3] = Math.cos(d.angle) * d.orbitRadius;
+      positions[i * 3 + 1] = d.tilt + Math.sin(d.angle * 2) * 0.2;
+      positions[i * 3 + 2] = Math.sin(d.angle) * d.orbitRadius;
+    });
+    streams.geometry.attributes.position.needsUpdate = true;
+
+    // Orbiting rings
+    rings.forEach(ring => {
+      ring.rotation.z += ring.userData.speedX * 0.01;
+    });
+
+    // Camera parallax
+    camera.position.x += (mouseX * 0.4 - camera.position.x) * 0.03;
+    camera.position.y += (-mouseY * 0.25 - camera.position.y) * 0.03;
     camera.lookAt(scene.position);
-    ptLight.position.x = Math.sin(elapsed * 0.4) * 4;
+
+    // Animate key light
+    keyLight.position.x = 4 + Math.sin(elapsed * 0.5) * 1;
+    keyLight.position.y = 3 + Math.cos(elapsed * 0.3) * 0.5;
+
     renderer.render(scene, camera);
   })(0);
 })();
@@ -1898,15 +2101,90 @@
 })();
 
 /* ═══════════════════════════════════════════════════════════
-   NEWSLETTER FORM
+   NEWSLETTER FORM (AJAX submission)
    ═══════════════════════════════════════════════════════════ */
 (function initNewsletter() {
   const form = document.getElementById('ve-newsletter-form');
-  if (!form) return;
-  form.addEventListener('submit', e => {
+  if (!form || typeof VE === 'undefined') return;
+
+  const emailInput = form.querySelector('input[type="email"]');
+  const submitBtn  = form.querySelector('button[type="submit"]');
+  let isSubmitting = false;
+
+  form.addEventListener('submit', async e => {
     e.preventDefault();
-    const emailInput = form.querySelector('input[type="email"]');
-    if (!emailInput || !emailInput.value) return;
-    form.innerHTML = `<div class="ve-form-success" style="display:flex;gap:1rem;align-items:flex-start;"><svg viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" style="width:32px;height:32px;flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg><div><strong style="display:block;margin-bottom:.25rem;">You're subscribed!</strong><p style="margin:0;font-size:.875rem;color:var(--ve-text-muted);">We'll send our next insights update to ${emailInput.value}.</p></div></div>`;
+    if (isSubmitting || !emailInput || !emailInput.value.trim()) return;
+
+    const email = emailInput.value.trim();
+    isSubmitting = true;
+
+    // Update button state
+    const originalBtnHTML = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `
+      <svg class="ve-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;animation:spin 1s linear infinite;">
+        <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+        <path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="1"/>
+      </svg>
+      Subscribing...
+    `;
+
+    try {
+      const fd = new FormData();
+      fd.append('action', 've_newsletter');
+      fd.append('nonce', VE.newsletterNonce);
+      fd.append('email', email);
+      fd.append('source', window.location.pathname);
+
+      const res  = await fetch(VE.ajaxUrl, { method: 'POST', body: fd });
+      const json = await res.json();
+
+      if (json.success) {
+        form.innerHTML = `
+          <div class="ve-form-success" style="display:flex;gap:1rem;align-items:flex-start;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" style="width:32px;height:32px;flex-shrink:0;">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <div>
+              <strong style="display:block;margin-bottom:.25rem;">You're subscribed!</strong>
+              <p style="margin:0;font-size:.875rem;color:var(--ve-text-muted);">
+                ${json.data.message || "We'll send our next insights update to " + email + "."}
+              </p>
+            </div>
+          </div>
+        `;
+      } else {
+        // Show error but keep form functional
+        showFormError(json.data?.message || 'Something went wrong. Please try again.');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnHTML;
+        isSubmitting = false;
+      }
+    } catch (err) {
+      showFormError('Network error. Please check your connection and try again.');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnHTML;
+      isSubmitting = false;
+    }
   });
+
+  function showFormError(message) {
+    // Remove existing error
+    const existingError = form.querySelector('.ve-form-error');
+    if (existingError) existingError.remove();
+
+    const errorEl = document.createElement('div');
+    errorEl.className = 've-form-error';
+    errorEl.style.cssText = 'color:#ef4444;font-size:.875rem;margin-top:.75rem;display:flex;align-items:center;gap:.5rem;';
+    errorEl.innerHTML = `
+      <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px;flex-shrink:0;">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+      </svg>
+      ${message}
+    `;
+    form.appendChild(errorEl);
+
+    // Auto-remove after 5s
+    setTimeout(() => errorEl.remove(), 5000);
+  }
 })();

@@ -49,9 +49,10 @@ function ve_enqueue_assets() {
     wp_enqueue_script( 've-main',     VE_URI . '/assets/js/main.js', [ 've-gsap', 've-gsap-st', 've-three', 've-chartjs' ], VE_VERSION, true );
 
     wp_localize_script( 've-main', 'VE', [
-        'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-        'nonce'   => wp_create_nonce( 've_contact_nonce' ),
-        'themeUri'=> VE_URI,
+        'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
+        'nonce'           => wp_create_nonce( 've_contact_nonce' ),
+        'newsletterNonce' => wp_create_nonce( 've_newsletter_nonce' ),
+        'themeUri'        => VE_URI,
     ] );
 }
 add_action( 'wp_enqueue_scripts', 've_enqueue_assets' );
@@ -221,6 +222,68 @@ function ve_handle_contact() {
 add_action( 'wp_ajax_ve_contact',        've_handle_contact' );
 add_action( 'wp_ajax_nopriv_ve_contact', 've_handle_contact' );
 
+// ─── Newsletter subscription handler ─────────────────────────────────────────
+
+function ve_handle_newsletter() {
+    check_ajax_referer( 've_newsletter_nonce', 'nonce' );
+
+    $email = sanitize_email( $_POST['email'] ?? '' );
+
+    if ( ! is_email( $email ) ) {
+        wp_send_json_error( [ 'message' => 'Please enter a valid email address.' ] );
+    }
+
+    // Get existing subscribers
+    $subscribers = get_option( 've_newsletter_subscribers', [] );
+
+    // Check for duplicates
+    $existing = array_filter( $subscribers, fn( $s ) => $s['email'] === $email );
+    if ( ! empty( $existing ) ) {
+        wp_send_json_error( [ 'message' => 'This email is already subscribed.' ] );
+    }
+
+    // Add new subscriber
+    $subscribers[] = [
+        'id'         => uniqid( 've_' ),
+        'email'      => $email,
+        'subscribed' => current_time( 'mysql' ),
+        'status'     => 'active',
+        'source'     => sanitize_text_field( $_POST['source'] ?? 'website' ),
+    ];
+    update_option( 've_newsletter_subscribers', $subscribers );
+
+    // Send confirmation email to subscriber
+    $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
+    $body    = ve_newsletter_welcome_email( $email );
+    wp_mail( $email, 'Welcome to Volkmann Express Insights', $body, $headers );
+
+    // Notify admin
+    $admin_email = get_option( 'admin_email' );
+    wp_mail( $admin_email, 'New Newsletter Subscriber', "New subscriber: {$email}", $headers );
+
+    wp_send_json_success( [ 'message' => "You're subscribed! Check your inbox for confirmation." ] );
+}
+add_action( 'wp_ajax_ve_newsletter',        've_handle_newsletter' );
+add_action( 'wp_ajax_nopriv_ve_newsletter', 've_handle_newsletter' );
+
+function ve_newsletter_welcome_email( $email ) {
+    $unsubscribe_url = home_url( '/newsletter-unsubscribe?email=' . urlencode( $email ) );
+    ob_start(); ?>
+    <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0A0A0F;color:#fff;padding:32px;border-radius:12px;">
+        <h2 style="color:#F97316;margin-bottom:16px;">Welcome to Volkmann Express Insights</h2>
+        <p style="color:#94A3B8;line-height:1.7;margin-bottom:24px;">
+            Thank you for subscribing! You'll receive our monthly technology intelligence newsletter — no fluff, no vendor marketing, just the analysis and perspective that helps you make better decisions.
+        </p>
+        <p style="color:#94A3B8;line-height:1.7;margin-bottom:24px;">
+            In the meantime, explore our latest insights at <a href="<?= esc_url( home_url('/insights') ) ?>" style="color:#F97316;">volkmannexpress.com/insights</a>.
+        </p>
+        <p style="font-size:12px;color:#64748B;margin-top:32px;">
+            You can <a href="<?= esc_url( $unsubscribe_url ) ?>" style="color:#64748B;">unsubscribe</a> at any time.
+        </p>
+    </div>
+    <?php return ob_get_clean();
+}
+
 function ve_contact_email_template( $name, $email, $company, $subject, $message ) {
     ob_start(); ?>
     <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0A0A0F;color:#fff;padding:32px;border-radius:12px;">
@@ -239,6 +302,7 @@ function ve_contact_email_template( $name, $email, $company, $subject, $message 
 
 function ve_admin_menu() {
     add_menu_page( 'VE Leads', 'VE Leads', 'manage_options', 've-leads', 've_leads_page', 'dashicons-email-alt', 30 );
+    add_submenu_page( 've-leads', 'Newsletter Subscribers', 'Subscribers', 'manage_options', 've-subscribers', 've_subscribers_page' );
 }
 add_action( 'admin_menu', 've_admin_menu' );
 
@@ -257,6 +321,47 @@ function ve_leads_page() {
             esc_html( $l['company'] ?? '' ),
             esc_html( $l['subject'] ?? '' ),
             esc_html( substr( $l['message'] ?? '', 0, 80 ) ) . '…'
+        );
+    }
+    echo '</tbody></table></div>';
+}
+
+function ve_subscribers_page() {
+    $subscribers = array_reverse( get_option( 've_newsletter_subscribers', [] ) );
+    $count       = count( $subscribers );
+    echo '<div class="wrap"><h1>Newsletter Subscribers <span class="title-count">(' . esc_html( $count ) . ')</span></h1>';
+
+    // Export button
+    if ( ! empty( $subscribers ) ) {
+        echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=ve-subscribers&export=csv' ) ) . '" class="button">Export CSV</a></p>';
+    }
+
+    // Handle CSV export
+    if ( isset( $_GET['export'] ) && $_GET['export'] === 'csv' && current_user_can( 'manage_options' ) ) {
+        header( 'Content-Type: text/csv' );
+        header( 'Content-Disposition: attachment; filename="ve-subscribers-' . date('Y-m-d') . '.csv"' );
+        $output = fopen( 'php://output', 'w' );
+        fputcsv( $output, [ 'Email', 'Subscribed Date', 'Status', 'Source' ] );
+        foreach ( $subscribers as $s ) {
+            fputcsv( $output, [ $s['email'], $s['subscribed'], $s['status'], $s['source'] ?? 'website' ] );
+        }
+        fclose( $output );
+        exit;
+    }
+
+    if ( empty( $subscribers ) ) { echo '<p>No subscribers yet.</p></div>'; return; }
+    echo '<table class="widefat striped"><thead><tr><th>Email</th><th>Subscribed</th><th>Status</th><th>Source</th></tr></thead><tbody>';
+    foreach ( $subscribers as $s ) {
+        $status_badge = $s['status'] === 'active'
+            ? '<span style="color:#22c55e;">●</span> Active'
+            : '<span style="color:#ef4444;">●</span> Unsubscribed';
+        printf(
+            '<tr><td><a href="mailto:%s">%s</a></td><td>%s</td><td>%s</td><td>%s</td></tr>',
+            esc_attr( $s['email'] ),
+            esc_html( $s['email'] ),
+            esc_html( $s['subscribed'] ?? '' ),
+            $status_badge,
+            esc_html( $s['source'] ?? 'website' )
         );
     }
     echo '</tbody></table></div>';
