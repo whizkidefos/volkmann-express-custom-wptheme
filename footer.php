@@ -130,7 +130,7 @@
     <!-- Footer bottom bar -->
     <div class="ve-footer__bottom container mx-auto px-4 lg:px-8">
         <p class="ve-footer__copy">
-            &copy; <?= date('Y') ?> Volkmann Express. All rights reserved.
+            &copy; <?= date('Y') ?> Volkmann Express Inc. All rights reserved.
         </p>
         <nav class="ve-footer__legal" aria-label="Legal">
             <a href="<?= esc_url( home_url('/privacy') ) ?>" class="ve-footer__link">Privacy Policy</a>

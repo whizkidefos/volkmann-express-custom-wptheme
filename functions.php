@@ -388,3 +388,119 @@ function ve_flush_on_service_publish( $new_status, $old_status, $post ) {
     }
 }
 add_action( 'transition_post_status', 've_flush_on_service_publish', 10, 3 );
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 5 — QA / LAUNCH OPTIMIZATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Performance: Resource hints (preconnect / dns-prefetch) ─────────────────
+
+function ve_resource_hints( $urls, $relation_type ) {
+    $hints = [
+        'preconnect' => [
+            'https://fonts.googleapis.com',
+            'https://fonts.gstatic.com',
+            'https://cdnjs.cloudflare.com',
+            'https://cdn.tailwindcss.com',
+        ],
+        'dns-prefetch' => [
+            '//www.google-analytics.com',
+            '//www.googletagmanager.com',
+        ],
+    ];
+    if ( isset( $hints[ $relation_type ] ) ) {
+        foreach ( $hints[ $relation_type ] as $url ) {
+            $urls[] = [ 'href' => $url, 'crossorigin' => 'anonymous' ];
+        }
+    }
+    return $urls;
+}
+add_filter( 'wp_resource_hints', 've_resource_hints', 10, 2 );
+
+// ─── Performance: Add fetchpriority to hero images ───────────────────────────
+
+function ve_add_fetchpriority( $attr, $attachment, $size ) {
+    if ( is_singular() && has_post_thumbnail() && $size === 've-hero' ) {
+        $attr['fetchpriority'] = 'high';
+        $attr['decoding']      = 'async';
+    }
+    return $attr;
+}
+add_filter( 'wp_get_attachment_image_attributes', 've_add_fetchpriority', 10, 3 );
+
+// ─── Performance: Defer non-critical JS ──────────────────────────────────────
+
+function ve_defer_scripts( $tag, $handle ) {
+    // Note: ve-three removed from defer list — required for 3D canvas on service pages
+    $defer_handles = [ 've-chartjs' ];
+    if ( in_array( $handle, $defer_handles, true ) && strpos( $tag, 'defer' ) === false ) {
+        $tag = str_replace( ' src=', ' defer src=', $tag );
+    }
+    return $tag;
+}
+add_filter( 'script_loader_tag', 've_defer_scripts', 10, 2 );
+
+// ─── Performance: Remove query strings from static resources ─────────────────
+
+function ve_remove_query_strings( $src ) {
+    if ( strpos( $src, '?ver=' ) !== false ) {
+        $src = remove_query_arg( 'ver', $src );
+    }
+    return $src;
+}
+add_filter( 'style_loader_src',  've_remove_query_strings', 15 );
+add_filter( 'script_loader_src', 've_remove_query_strings', 15 );
+
+// ─── Performance: Disable emojis ─────────────────────────────────────────────
+
+function ve_disable_emojis() {
+    remove_action( 'wp_head',             'print_emoji_detection_script', 7 );
+    remove_action( 'admin_print_scripts', 'print_emoji_detection_script' );
+    remove_action( 'wp_print_styles',     'print_emoji_styles' );
+    remove_action( 'admin_print_styles',  'print_emoji_styles' );
+    remove_filter( 'the_content_feed',    'wp_staticize_emoji' );
+    remove_filter( 'comment_text_rss',    'wp_staticize_emoji' );
+    remove_filter( 'wp_mail',             'wp_staticize_emoji_for_email' );
+}
+add_action( 'init', 've_disable_emojis' );
+
+// ─── Performance: Remove unnecessary head clutter ────────────────────────────
+
+remove_action( 'wp_head', 'wp_generator' );
+remove_action( 'wp_head', 'wlwmanifest_link' );
+remove_action( 'wp_head', 'rsd_link' );
+remove_action( 'wp_head', 'wp_shortlink_wp_head' );
+remove_action( 'wp_head', 'rest_output_link_wp_head' );
+remove_action( 'wp_head', 'wp_oembed_add_discovery_links' );
+
+// ─── SEO: Add theme-color meta ───────────────────────────────────────────────
+
+function ve_theme_color_meta() {
+    echo '<meta name="theme-color" content="#0A0A0F" media="(prefers-color-scheme: dark)">' . "\n";
+    echo '<meta name="theme-color" content="#F8FAFF" media="(prefers-color-scheme: light)">' . "\n";
+}
+add_action( 'wp_head', 've_theme_color_meta', 2 );
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CUSTOM LOGIN / AUTH SCREEN BRANDING
+// ═══════════════════════════════════════════════════════════════════════════
+
+function ve_login_enqueue_styles() {
+    wp_enqueue_style( 've-login', VE_URI . '/assets/css/login.css', [], VE_VERSION );
+}
+add_action( 'login_enqueue_scripts', 've_login_enqueue_styles' );
+
+function ve_login_logo_url() {
+    return home_url( '/' );
+}
+add_filter( 'login_headerurl', 've_login_logo_url' );
+
+function ve_login_logo_title() {
+    return get_bloginfo( 'name' );
+}
+add_filter( 'login_headertext', 've_login_logo_title' );
+
+function ve_admin_footer_branding() {
+    echo '<span id="footer-thankyou">Volkmann Express Theme by <a href="https://yohanorg.com" target="_blank">Yohanorg Limited</a></span>';
+}
+add_filter( 'admin_footer_text', 've_admin_footer_branding' );

@@ -1057,6 +1057,7 @@
 
 /* ═══════════════════════════════════════════════════════════
    THREE.JS SOLUTION PAGE CANVAS (per-service 3D visual)
+   Each of the 8 services gets a unique, thematic 3D scene.
    ═══════════════════════════════════════════════════════════ */
 (function initSolutionCanvas() {
   const canvas = document.getElementById('ve-solution-canvas');
@@ -1074,69 +1075,537 @@
   const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 100);
   camera.position.set(0, 0, 5);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-  const pt1 = new THREE.PointLight(0xF97316, 4, 15);
-  pt1.position.set(3, 3, 3);
-  scene.add(pt1);
-  const pt2 = new THREE.PointLight(0x2563EB, 2, 12);
-  pt2.position.set(-3, -2, 1);
-  scene.add(pt2);
+  // Shared colors
+  const ORANGE = 0xF97316;
+  const BLUE   = 0x2563EB;
+  const CYAN   = 0x06B6D4;
+  const DARK   = 0x0A0A0F;
 
-  // Different geometry per service type
-  let mainMesh;
-  const color1 = 0xF97316;
-  const color2 = 0x2563EB;
+  // Animation state
+  let animateFn = null;
+  let extraObjects = [];
 
-  if (slug.includes('ai') || slug.includes('data')) {
-    // Icosahedron (AI/brain-like)
-    const geo = new THREE.IcosahedronGeometry(1.2, 1);
-    mainMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x0A0A0F, metalness: .85, roughness: .15, wireframe: false }));
-    scene.add(mainMesh);
-    const wire = new THREE.Mesh(new THREE.IcosahedronGeometry(1.25, 1), new THREE.MeshBasicMaterial({ color: color1, wireframe: true, opacity: .25, transparent: true }));
-    scene.add(wire);
-  } else if (slug.includes('cloud')) {
-    // Torus knot (flow/interconnection)
-    const geo = new THREE.TorusKnotGeometry(.9, .28, 100, 16);
-    mainMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: color2, metalness: .8, roughness: .2 }));
-    scene.add(mainMesh);
-  } else if (slug.includes('cyber') || slug.includes('security')) {
-    // Octahedron (shield-like, sharp)
-    const geo = new THREE.OctahedronGeometry(1.3, 0);
-    mainMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x0A0A0F, metalness: .9, roughness: .1 }));
-    scene.add(mainMesh);
-    const wire = new THREE.Mesh(new THREE.OctahedronGeometry(1.35, 0), new THREE.MeshBasicMaterial({ color: color1, wireframe: true, opacity: .4, transparent: true }));
-    scene.add(wire);
-  } else if (slug.includes('iot') || slug.includes('automation')) {
-    // Dodecahedron (network nodes)
-    const geo = new THREE.DodecahedronGeometry(1.1, 0);
-    mainMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x0A0A0F, metalness: .8, roughness: .2 }));
-    scene.add(mainMesh);
-    const wire = new THREE.Mesh(new THREE.DodecahedronGeometry(1.15, 0), new THREE.MeshBasicMaterial({ color: 0x06B6D4, wireframe: true, opacity: .3, transparent: true }));
-    scene.add(wire);
-  } else {
-    // Default sphere
-    const geo = new THREE.SphereGeometry(1.2, 48, 48);
-    mainMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x0A0A0F, metalness: .9, roughness: .15 }));
-    scene.add(mainMesh);
-    const wire = new THREE.Mesh(new THREE.SphereGeometry(1.25, 18, 18), new THREE.MeshBasicMaterial({ color: color1, wireframe: true, opacity: .2, transparent: true }));
-    scene.add(wire);
+  // ─── 1. AI & MACHINE LEARNING: Neural network brain ───────
+  if (slug === 'ai-machine-learning') {
+    // Central brain-like icosahedron with pulsing neural connections
+    const core = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.9, 2),
+      new THREE.MeshStandardMaterial({ color: DARK, metalness: 0.9, roughness: 0.1 })
+    );
+    scene.add(core);
+
+    // Outer wireframe shell
+    const shell = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(1.1, 1),
+      new THREE.MeshBasicMaterial({ color: ORANGE, wireframe: true, opacity: 0.3, transparent: true })
+    );
+    scene.add(shell);
+
+    // Neural nodes orbiting
+    const nodes = [];
+    for (let i = 0; i < 12; i++) {
+      const node = new THREE.Mesh(
+        new THREE.SphereGeometry(0.08, 12, 12),
+        new THREE.MeshStandardMaterial({ color: ORANGE, emissive: ORANGE, emissiveIntensity: 0.5 })
+      );
+      const angle = (i / 12) * Math.PI * 2;
+      const layer = i % 3;
+      node.userData = { angle, radius: 1.6 + layer * 0.3, speed: 0.4 + layer * 0.15, yOffset: (layer - 1) * 0.5 };
+      scene.add(node);
+      nodes.push(node);
+    }
+
+    // Synaptic connections (lines between nearby nodes)
+    const lineMat = new THREE.LineBasicMaterial({ color: CYAN, opacity: 0.25, transparent: true });
+
+    animateFn = (t) => {
+      core.rotation.y = t * 0.2;
+      core.rotation.x = Math.sin(t * 0.3) * 0.1;
+      shell.rotation.y = -t * 0.15;
+      shell.rotation.z = t * 0.1;
+
+      nodes.forEach((n, i) => {
+        const d = n.userData;
+        n.position.x = Math.cos(d.angle + t * d.speed) * d.radius;
+        n.position.z = Math.sin(d.angle + t * d.speed) * d.radius * 0.6;
+        n.position.y = d.yOffset + Math.sin(t * 2 + i) * 0.15;
+        n.material.emissiveIntensity = 0.4 + Math.sin(t * 3 + i) * 0.3;
+      });
+    };
   }
 
-  // Orbiting particles
-  const COUNT = 80;
-  const pGeo = new THREE.BufferGeometry();
-  const pos  = new Float32Array(COUNT * 3);
-  for (let i = 0; i < COUNT; i++) {
-    const r = 2.2 + Math.random() * .8;
-    const theta = Math.random() * Math.PI * 2;
-    const phi   = Math.acos(2 * Math.random() - 1);
-    pos[i*3]   = r * Math.sin(phi) * Math.cos(theta);
-    pos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
-    pos[i*3+2] = r * Math.cos(phi);
-  }
-  pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  scene.add(new THREE.Points(pGeo, new THREE.PointsMaterial({ size: .04, color: color1, transparent: true, opacity: .6, blending: THREE.AdditiveBlending })));
+  // ─── 2. CLOUD SOLUTIONS: Floating cloud infrastructure ────
+  else if (slug === 'cloud') {
+    // Layered horizontal planes representing cloud tiers
+    const tiers = [];
+    [-0.8, 0, 0.8].forEach((y, i) => {
+      const tier = new THREE.Mesh(
+        new THREE.BoxGeometry(2.5 - i * 0.3, 0.08, 1.8 - i * 0.2),
+        new THREE.MeshStandardMaterial({ color: DARK, metalness: 0.8, roughness: 0.2, transparent: true, opacity: 0.9 })
+      );
+      tier.position.y = y;
+      scene.add(tier);
+      tiers.push(tier);
 
+      // Edge glow
+      const edges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(tier.geometry),
+        new THREE.LineBasicMaterial({ color: i === 1 ? ORANGE : BLUE, opacity: 0.6, transparent: true })
+      );
+      edges.position.copy(tier.position);
+      scene.add(edges);
+      extraObjects.push(edges);
+    });
+
+    // Data packets flowing between tiers
+    const packets = [];
+    for (let i = 0; i < 15; i++) {
+      const packet = new THREE.Mesh(
+        new THREE.BoxGeometry(0.1, 0.1, 0.1),
+        new THREE.MeshBasicMaterial({ color: i % 2 ? ORANGE : CYAN })
+      );
+      packet.userData = {
+        x: (Math.random() - 0.5) * 2,
+        z: (Math.random() - 0.5) * 1.4,
+        speed: 0.5 + Math.random() * 0.5,
+        phase: Math.random() * Math.PI * 2
+      };
+      scene.add(packet);
+      packets.push(packet);
+    }
+
+    animateFn = (t) => {
+      tiers.forEach((tier, i) => {
+        tier.position.y = [-0.8, 0, 0.8][i] + Math.sin(t * 0.8 + i * 0.5) * 0.05;
+        extraObjects[i].position.y = tier.position.y;
+      });
+      packets.forEach(p => {
+        const d = p.userData;
+        p.position.x = d.x + Math.sin(t + d.phase) * 0.3;
+        p.position.z = d.z;
+        p.position.y = Math.sin(t * d.speed + d.phase) * 1.2;
+        p.rotation.x = t * 2;
+        p.rotation.z = t * 1.5;
+      });
+    };
+  }
+
+  // ─── 3. CYBERSECURITY: Shield with rotating lock rings ────
+  else if (slug === 'cybersecurity') {
+    // Central shield (octahedron)
+    const shield = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.8, 0),
+      new THREE.MeshStandardMaterial({ color: DARK, metalness: 0.95, roughness: 0.05 })
+    );
+    scene.add(shield);
+
+    // Protective rings (like a force field)
+    const rings = [];
+    [1.3, 1.6, 1.9].forEach((r, i) => {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(r, 0.025, 8, 64),
+        new THREE.MeshBasicMaterial({ color: i === 1 ? ORANGE : BLUE, opacity: 0.5 - i * 0.1, transparent: true })
+      );
+      ring.userData = { baseRotX: (i - 1) * 0.4, baseRotY: i * 0.3, speed: 0.3 + i * 0.1 };
+      scene.add(ring);
+      rings.push(ring);
+    });
+
+    // Lock icon particles at center
+    const lockDots = [];
+    const lockShape = [
+      [0, 0.3], [-0.15, 0.15], [0.15, 0.15], [-0.15, -0.1], [0.15, -0.1], [-0.15, -0.25], [0.15, -0.25], [0, -0.25]
+    ];
+    lockShape.forEach(([x, y]) => {
+      const dot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.04, 8, 8),
+        new THREE.MeshBasicMaterial({ color: ORANGE })
+      );
+      dot.position.set(x * 1.5, y * 1.5, 0.85);
+      scene.add(dot);
+      lockDots.push(dot);
+    });
+
+    animateFn = (t) => {
+      shield.rotation.y = t * 0.4;
+      shield.rotation.x = Math.sin(t * 0.5) * 0.2;
+      rings.forEach(ring => {
+        const d = ring.userData;
+        ring.rotation.x = d.baseRotX + t * d.speed;
+        ring.rotation.y = d.baseRotY + t * d.speed * 0.7;
+      });
+      lockDots.forEach((dot, i) => {
+        dot.material.opacity = 0.6 + Math.sin(t * 4 + i * 0.5) * 0.4;
+      });
+    };
+  }
+
+  // ─── 4. DATA ANALYTICS: 3D bar chart with floating data ───
+  else if (slug === 'data-analytics') {
+    // Bar chart columns
+    const bars = [];
+    const barHeights = [0.6, 1.0, 0.8, 1.4, 1.1, 0.9, 1.3, 0.7];
+    barHeights.forEach((h, i) => {
+      const bar = new THREE.Mesh(
+        new THREE.BoxGeometry(0.25, h, 0.25),
+        new THREE.MeshStandardMaterial({ color: i % 2 ? ORANGE : BLUE, metalness: 0.7, roughness: 0.3 })
+      );
+      bar.position.x = (i - 3.5) * 0.4;
+      bar.position.y = h / 2 - 0.7;
+      bar.position.z = 0;
+      bar.userData = { baseHeight: h, phase: i * 0.3 };
+      scene.add(bar);
+      bars.push(bar);
+    });
+
+    // Floating data points
+    const dataPoints = [];
+    for (let i = 0; i < 25; i++) {
+      const point = new THREE.Mesh(
+        new THREE.SphereGeometry(0.04, 8, 8),
+        new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.7 })
+      );
+      point.userData = {
+        baseX: (Math.random() - 0.5) * 3,
+        baseY: (Math.random() - 0.5) * 2,
+        baseZ: (Math.random() - 0.5) * 2,
+        speed: 0.5 + Math.random()
+      };
+      scene.add(point);
+      dataPoints.push(point);
+    }
+
+    // Trend line
+    const linePoints = [];
+    for (let i = 0; i <= 20; i++) {
+      linePoints.push(new THREE.Vector3((i / 20 - 0.5) * 3, Math.sin(i * 0.4) * 0.3 + 0.8, -0.5));
+    }
+    const trendLine = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(linePoints),
+      new THREE.LineBasicMaterial({ color: ORANGE, opacity: 0.8, transparent: true })
+    );
+    scene.add(trendLine);
+
+    animateFn = (t) => {
+      bars.forEach(bar => {
+        const d = bar.userData;
+        const newH = d.baseHeight + Math.sin(t * 1.5 + d.phase) * 0.15;
+        bar.scale.y = newH / d.baseHeight;
+        bar.position.y = (newH / 2) - 0.7;
+      });
+      dataPoints.forEach(p => {
+        const d = p.userData;
+        p.position.x = d.baseX + Math.sin(t * d.speed) * 0.2;
+        p.position.y = d.baseY + Math.cos(t * d.speed * 0.7) * 0.2;
+        p.position.z = d.baseZ + Math.sin(t * d.speed * 0.5) * 0.2;
+      });
+    };
+  }
+
+  // ─── 5. DIGITAL TRANSFORMATION: Morphing cube to sphere ───
+  else if (slug === 'digital-transformation') {
+    // Wireframe cube
+    const cube = new THREE.Mesh(
+      new THREE.BoxGeometry(1.4, 1.4, 1.4),
+      new THREE.MeshBasicMaterial({ color: BLUE, wireframe: true, opacity: 0.4, transparent: true })
+    );
+    scene.add(cube);
+
+    // Wireframe sphere (same position, will morph visually via rotation)
+    const sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 16, 16),
+      new THREE.MeshBasicMaterial({ color: ORANGE, wireframe: true, opacity: 0.4, transparent: true })
+    );
+    scene.add(sphere);
+
+    // Transformation particles spiraling
+    const spiralParticles = [];
+    for (let i = 0; i < 40; i++) {
+      const p = new THREE.Mesh(
+        new THREE.SphereGeometry(0.05, 6, 6),
+        new THREE.MeshBasicMaterial({ color: i % 2 ? ORANGE : CYAN })
+      );
+      p.userData = { angle: (i / 40) * Math.PI * 4, height: (i / 40) * 2 - 1, radius: 1.8 };
+      scene.add(p);
+      spiralParticles.push(p);
+    }
+
+    // Arrow indicating transformation
+    const arrowGroup = new THREE.Group();
+    const arrowShaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.03, 0.8, 8),
+      new THREE.MeshBasicMaterial({ color: ORANGE })
+    );
+    arrowShaft.rotation.z = -Math.PI / 2;
+    arrowGroup.add(arrowShaft);
+    const arrowHead = new THREE.Mesh(
+      new THREE.ConeGeometry(0.08, 0.2, 8),
+      new THREE.MeshBasicMaterial({ color: ORANGE })
+    );
+    arrowHead.position.x = 0.5;
+    arrowHead.rotation.z = -Math.PI / 2;
+    arrowGroup.add(arrowHead);
+    arrowGroup.position.y = -1.5;
+    scene.add(arrowGroup);
+
+    animateFn = (t) => {
+      const morph = (Math.sin(t * 0.5) + 1) / 2; // 0 to 1
+      cube.scale.setScalar(1 - morph * 0.3);
+      cube.rotation.y = t * 0.3;
+      cube.rotation.x = t * 0.2;
+      cube.material.opacity = 0.5 - morph * 0.3;
+
+      sphere.scale.setScalar(0.7 + morph * 0.5);
+      sphere.rotation.y = -t * 0.25;
+      sphere.material.opacity = 0.2 + morph * 0.4;
+
+      spiralParticles.forEach((p, i) => {
+        const d = p.userData;
+        const angle = d.angle + t * 0.8;
+        p.position.x = Math.cos(angle) * d.radius;
+        p.position.z = Math.sin(angle) * d.radius * 0.5;
+        p.position.y = d.height + Math.sin(t * 2 + i * 0.2) * 0.1;
+      });
+
+      arrowGroup.position.x = Math.sin(t) * 0.1;
+    };
+  }
+
+  // ─── 6. CUSTOM SOFTWARE: Code blocks / modular stack ──────
+  else if (slug === 'custom-software') {
+    // Stacked code modules
+    const modules = [];
+    const moduleData = [
+      { w: 1.8, h: 0.3, d: 1.2, y: -0.8, color: BLUE },
+      { w: 1.5, h: 0.35, d: 1.0, y: -0.35, color: DARK },
+      { w: 1.6, h: 0.3, d: 1.1, y: 0.1, color: ORANGE },
+      { w: 1.3, h: 0.35, d: 0.9, y: 0.55, color: DARK },
+      { w: 1.0, h: 0.3, d: 0.7, y: 0.95, color: CYAN },
+    ];
+    moduleData.forEach((m, i) => {
+      const mod = new THREE.Mesh(
+        new THREE.BoxGeometry(m.w, m.h, m.d),
+        new THREE.MeshStandardMaterial({ color: m.color, metalness: 0.8, roughness: 0.2 })
+      );
+      mod.position.y = m.y;
+      mod.userData = { baseY: m.y, phase: i * 0.4 };
+      scene.add(mod);
+      modules.push(mod);
+
+      // Code line details on each module
+      const lines = new THREE.LineSegments(
+        new THREE.EdgesGeometry(mod.geometry),
+        new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.15, transparent: true })
+      );
+      lines.position.copy(mod.position);
+      scene.add(lines);
+      extraObjects.push({ line: lines, mod });
+    });
+
+    // Floating brackets
+    const bracketMat = new THREE.MeshBasicMaterial({ color: ORANGE, transparent: true, opacity: 0.6 });
+    const leftBracket = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.03, 8, 16, Math.PI), bracketMat);
+    leftBracket.position.set(-1.5, 0, 0);
+    leftBracket.rotation.z = Math.PI / 2;
+    scene.add(leftBracket);
+    const rightBracket = leftBracket.clone();
+    rightBracket.position.x = 1.5;
+    rightBracket.rotation.z = -Math.PI / 2;
+    scene.add(rightBracket);
+
+    animateFn = (t) => {
+      modules.forEach((mod, i) => {
+        const d = mod.userData;
+        mod.position.y = d.baseY + Math.sin(t * 1.2 + d.phase) * 0.05;
+        mod.rotation.y = Math.sin(t * 0.5 + d.phase) * 0.05;
+        extraObjects[i].line.position.y = mod.position.y;
+        extraObjects[i].line.rotation.y = mod.rotation.y;
+      });
+      leftBracket.position.y = Math.sin(t * 0.8) * 0.1;
+      rightBracket.position.y = Math.sin(t * 0.8 + 1) * 0.1;
+    };
+  }
+
+  // ─── 7. IOT & AUTOMATION: Connected sensor network ────────
+  else if (slug === 'iot-automation') {
+    // Central hub
+    const hub = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(0.5, 0),
+      new THREE.MeshStandardMaterial({ color: DARK, metalness: 0.9, roughness: 0.1 })
+    );
+    scene.add(hub);
+    const hubGlow = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(0.55, 0),
+      new THREE.MeshBasicMaterial({ color: ORANGE, wireframe: true, opacity: 0.4, transparent: true })
+    );
+    scene.add(hubGlow);
+
+    // Sensor nodes in a network
+    const sensors = [];
+    const sensorPositions = [
+      [-1.5, 0.8, 0], [1.5, 0.8, 0], [-1.2, -0.9, 0.5], [1.2, -0.9, 0.5],
+      [0, 1.4, -0.3], [0, -1.3, -0.3], [-0.8, 0, 1.2], [0.8, 0, 1.2]
+    ];
+    sensorPositions.forEach((pos, i) => {
+      const sensor = new THREE.Mesh(
+        new THREE.BoxGeometry(0.2, 0.2, 0.2),
+        new THREE.MeshStandardMaterial({ color: i % 2 ? CYAN : BLUE, metalness: 0.7, roughness: 0.3 })
+      );
+      sensor.position.set(...pos);
+      sensor.userData = { basePos: pos.slice(), pulsePhase: i * 0.5 };
+      scene.add(sensor);
+      sensors.push(sensor);
+
+      // Connection line to hub
+      const lineGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(...pos)
+      ]);
+      const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: ORANGE, opacity: 0.3, transparent: true }));
+      scene.add(line);
+    });
+
+    // Data pulses traveling along connections
+    const pulses = [];
+    for (let i = 0; i < 8; i++) {
+      const pulse = new THREE.Mesh(
+        new THREE.SphereGeometry(0.06, 8, 8),
+        new THREE.MeshBasicMaterial({ color: ORANGE })
+      );
+      pulse.userData = { targetIdx: i, progress: Math.random() };
+      scene.add(pulse);
+      pulses.push(pulse);
+    }
+
+    animateFn = (t) => {
+      hub.rotation.y = t * 0.3;
+      hub.rotation.x = t * 0.15;
+      hubGlow.rotation.y = -t * 0.2;
+
+      sensors.forEach((s, i) => {
+        const d = s.userData;
+        s.rotation.y = t * 0.5;
+        s.scale.setScalar(1 + Math.sin(t * 3 + d.pulsePhase) * 0.1);
+      });
+
+      pulses.forEach((p, i) => {
+        const d = p.userData;
+        d.progress += 0.008;
+        if (d.progress > 1) d.progress = 0;
+        const target = sensorPositions[d.targetIdx];
+        const prog = d.progress < 0.5 ? d.progress * 2 : (1 - d.progress) * 2;
+        p.position.x = target[0] * prog;
+        p.position.y = target[1] * prog;
+        p.position.z = target[2] * prog;
+      });
+    };
+  }
+
+  // ─── 8. MANAGED IT SERVICES: Server rack with monitors ────
+  else if (slug === 'managed-it-services') {
+    // Server rack frame
+    const rack = new THREE.Group();
+    const rackFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(1.4, 2.2, 0.8),
+      new THREE.MeshStandardMaterial({ color: DARK, metalness: 0.85, roughness: 0.15, transparent: true, opacity: 0.9 })
+    );
+    rack.add(rackFrame);
+
+    // Server units
+    const servers = [];
+    for (let i = 0; i < 5; i++) {
+      const server = new THREE.Mesh(
+        new THREE.BoxGeometry(1.2, 0.3, 0.6),
+        new THREE.MeshStandardMaterial({ color: 0x1a1a24, metalness: 0.8, roughness: 0.2 })
+      );
+      server.position.y = -0.8 + i * 0.4;
+      server.position.z = 0.05;
+      rack.add(server);
+      servers.push(server);
+
+      // Status LED
+      const led = new THREE.Mesh(
+        new THREE.SphereGeometry(0.04, 8, 8),
+        new THREE.MeshBasicMaterial({ color: i === 2 ? ORANGE : 0x22C55E })
+      );
+      led.position.set(0.5, -0.8 + i * 0.4, 0.35);
+      led.userData = { phase: i * 0.7 };
+      rack.add(led);
+      extraObjects.push(led);
+    }
+    scene.add(rack);
+
+    // Floating monitoring graphs
+    const graphs = [];
+    [-1.8, 1.8].forEach((x, i) => {
+      const graph = new THREE.Group();
+      const screen = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.8, 0.5),
+        new THREE.MeshBasicMaterial({ color: DARK, side: THREE.DoubleSide })
+      );
+      graph.add(screen);
+      const border = new THREE.LineSegments(
+        new THREE.EdgesGeometry(screen.geometry),
+        new THREE.LineBasicMaterial({ color: i ? CYAN : ORANGE })
+      );
+      graph.add(border);
+      graph.position.set(x, 0.3, 0.5);
+      graph.rotation.y = x > 0 ? -0.3 : 0.3;
+      scene.add(graph);
+      graphs.push(graph);
+    });
+
+    animateFn = (t) => {
+      rack.rotation.y = Math.sin(t * 0.3) * 0.1;
+      extraObjects.forEach((led, i) => {
+        led.material.opacity = 0.6 + Math.sin(t * 4 + led.userData.phase) * 0.4;
+      });
+      graphs.forEach((g, i) => {
+        g.position.y = 0.3 + Math.sin(t * 0.8 + i) * 0.1;
+      });
+    };
+  }
+
+  // ─── DEFAULT: Elegant sphere fallback ─────────────────────
+  else {
+    const core = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 64, 64),
+      new THREE.MeshStandardMaterial({ color: DARK, metalness: 0.9, roughness: 0.1 })
+    );
+    scene.add(core);
+    const wire = new THREE.Mesh(
+      new THREE.SphereGeometry(1.1, 24, 24),
+      new THREE.MeshBasicMaterial({ color: ORANGE, wireframe: true, opacity: 0.25, transparent: true })
+    );
+    scene.add(wire);
+
+    animateFn = (t) => {
+      core.rotation.y = t * 0.2;
+      wire.rotation.y = -t * 0.15;
+      wire.rotation.x = t * 0.1;
+    };
+  }
+
+  // ─── Lighting ─────────────────────────────────────────────
+  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+  const keyLight = new THREE.PointLight(ORANGE, 3, 15);
+  keyLight.position.set(3, 2, 3);
+  scene.add(keyLight);
+  const fillLight = new THREE.PointLight(BLUE, 2, 12);
+  fillLight.position.set(-3, -1, 2);
+  scene.add(fillLight);
+  const rimLight = new THREE.PointLight(CYAN, 1.5, 10);
+  rimLight.position.set(0, 3, -3);
+  scene.add(rimLight);
+
+  // ─── Mouse interaction ────────────────────────────────────
+  let mouseX = 0, mouseY = 0;
+  document.addEventListener('mousemove', e => {
+    mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+    mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+  });
+
+  // ─── Resize handler ───────────────────────────────────────
   window.addEventListener('resize', () => {
     const nW = canvas.offsetWidth;
     const nH = canvas.offsetHeight;
@@ -1146,13 +1615,23 @@
     camera.updateProjectionMatrix();
   });
 
+  // ─── Animation loop ───────────────────────────────────────
   (function animate(t) {
     requestAnimationFrame(animate);
     const elapsed = t * 0.001;
-    if (mainMesh) {
-      mainMesh.rotation.y = elapsed * 0.3;
-      mainMesh.rotation.x = elapsed * 0.15;
-    }
+
+    // Camera subtle movement based on mouse
+    camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.03;
+    camera.position.y += (-mouseY * 0.3 - camera.position.y) * 0.03;
+    camera.lookAt(scene.position);
+
+    // Service-specific animation
+    if (animateFn) animateFn(elapsed);
+
+    // Animate lights subtly
+    keyLight.position.x = 3 + Math.sin(elapsed * 0.5) * 0.5;
+    keyLight.position.y = 2 + Math.cos(elapsed * 0.3) * 0.3;
+
     renderer.render(scene, camera);
   })(0);
 })();
