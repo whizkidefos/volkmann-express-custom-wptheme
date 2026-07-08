@@ -319,6 +319,7 @@ function ve_chat_intents(): array {
         if (empty($qa['keywords']) || empty($qa['answer'])) continue;
         $triggers = [];
         foreach (array_map('trim', explode(',', $qa['keywords'])) as $kw) {
+            $kw = mb_strtolower( $kw );
             if ($kw) $triggers[$kw] = 4;
         }
         $intents['custom_' . $i] = [
@@ -338,9 +339,67 @@ function ve_chat_intents(): array {
    MATCHING ENGINE
    ═══════════════════════════════════════════════════════════════ */
 
+function ve_chat_tokenize( string $text ): array {
+    $tokens = preg_split( '/[^a-z0-9]+/i', mb_strtolower( $text ), -1, PREG_SPLIT_NO_EMPTY );
+    return array_values( array_unique( $tokens ?: [] ) );
+}
+
+function ve_chat_phrase_score( string $input_lower, array $input_tokens, string $phrase, float $weight ): float {
+    if ( str_contains( $input_lower, $phrase ) ) {
+        return $weight;
+    }
+
+    $phrase_tokens = ve_chat_tokenize( $phrase );
+    if ( empty( $phrase_tokens ) ) {
+        return 0.0;
+    }
+
+    $exact = 0;
+    $fuzzy = 0;
+
+    foreach ( $phrase_tokens as $pt ) {
+        if ( in_array( $pt, $input_tokens, true ) ) {
+            $exact++;
+            continue;
+        }
+
+        foreach ( $input_tokens as $it ) {
+            if ( abs( strlen( $it ) - strlen( $pt ) ) > 2 ) {
+                continue;
+            }
+            if ( levenshtein( $it, $pt ) <= 1 ) {
+                $fuzzy++;
+                break;
+            }
+        }
+    }
+
+    $coverage = ( $exact + ( 0.65 * $fuzzy ) ) / max( 1, count( $phrase_tokens ) );
+    if ( $coverage >= 0.75 ) {
+        return max( 1.0, $weight * $coverage * 0.85 );
+    }
+
+    // Single-word tolerance for common typos.
+    if ( count( $phrase_tokens ) === 1 ) {
+        $best = 0.0;
+        foreach ( $input_tokens as $it ) {
+            similar_text( $phrase_tokens[0], $it, $pct );
+            if ( $pct > $best ) {
+                $best = $pct;
+            }
+        }
+        if ( $best >= 88 ) {
+            return max( 1.0, $weight * 0.7 );
+        }
+    }
+
+    return 0.0;
+}
+
 function ve_chat_match( string $input, string $last_context = '' ): array {
     $intents = ve_chat_intents();
     $lower   = mb_strtolower( trim( $input ) );
+    $input_tokens = ve_chat_tokenize( $lower );
 
     $scores = [];
 
@@ -349,9 +408,11 @@ function ve_chat_match( string $input, string $last_context = '' ): array {
 
         // Score by trigger matches
         foreach ( $intent['triggers'] as $phrase => $weight ) {
-            if ( str_contains( $lower, $phrase ) ) {
-                $score += $weight;
+            $phrase = mb_strtolower( trim( (string) $phrase ) );
+            if ( $phrase === '' ) {
+                continue;
             }
+            $score += ve_chat_phrase_score( $lower, $input_tokens, $phrase, (float) $weight );
         }
 
         // Context boost: if last intent was, say, 'cyber' and user says 'tell me more',
@@ -370,17 +431,31 @@ function ve_chat_match( string $input, string $last_context = '' ): array {
             if ( $last_context === $key ) $score += 6;
         }
 
-        if ( $score > 0 ) $scores[$key] = $score;
+        if ( $score > 0 ) {
+            $scores[$key] = [
+                'score'     => $score,
+                'priority'  => (int) ( $intent['priority'] ?? 0 ),
+                'is_custom' => str_starts_with( $key, 'custom_' ) ? 1 : 0,
+            ];
+        }
     }
 
     if ( empty( $scores ) ) {
         return ve_chat_fallback( $lower, $last_context );
     }
 
-    // Sort by score descending, then by priority
-    uasort( $scores, fn($a, $b) => $b <=> $a );
+    // Sort by score, then custom entries, then configured intent priority.
+    uasort( $scores, function( $a, $b ) {
+        if ( $a['score'] !== $b['score'] ) {
+            return $b['score'] <=> $a['score'];
+        }
+        if ( $a['is_custom'] !== $b['is_custom'] ) {
+            return $b['is_custom'] <=> $a['is_custom'];
+        }
+        return $b['priority'] <=> $a['priority'];
+    } );
     $top_key   = array_key_first( $scores );
-    $top_score = $scores[ $top_key ];
+    $top_score = $scores[ $top_key ]['score'];
 
     // Threshold check
     if ( $top_score < 3 ) {

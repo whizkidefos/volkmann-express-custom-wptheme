@@ -97,7 +97,7 @@ get_template_part( 'template-parts/hero', null, [
         <div class="ve-achievements-grid ve-achievements-grid--centered">
             <?php
             $achievements = [
-                [ 'value' => '200+',  'label' => 'Enterprise Clients',         'suffix' => '' ],
+                [ 'value' => '200',   'label' => 'Enterprise Clients',         'suffix' => '+' ],
                 [ 'value' => '98',    'label' => 'Client Retention Rate',       'suffix' => '%' ],
                 [ 'value' => '12',    'label' => 'Industries Served',           'suffix' => '+' ],
                 [ 'value' => '2',     'label' => 'Billion in Client Value',     'suffix' => 'B+' ],
@@ -107,7 +107,7 @@ get_template_part( 'template-parts/hero', null, [
             foreach ( $achievements as $a ) : ?>
             <div class="ve-achievement ve-reveal" data-countup="<?= esc_attr($a['value']) ?>" data-suffix="<?= esc_attr($a['suffix']) ?>">
                 <span class="ve-achievement__value">
-                    <span class="ve-countup-num"><?= esc_html($a['value']) ?></span><?= esc_html($a['suffix']) ?>
+                    <span class="ve-countup-num"><?= esc_html($a['value']) ?></span><span class="ve-countup-suffix"><?= esc_html($a['suffix']) ?></span>
                 </span>
                 <span class="ve-achievement__label"><?= esc_html($a['label']) ?></span>
             </div>

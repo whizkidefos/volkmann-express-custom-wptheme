@@ -148,7 +148,8 @@ function ve_register_cpts() {
                 'edit_item'     => 'Edit ' . $args['singular'],
             ],
             'public'            => true,
-            'has_archive'       => true,
+            // Keep /solutions available for the page template while preserving /solutions/{slug} singles.
+            'has_archive'       => ( $type === 'service' ) ? false : true,
             'rewrite'           => [ 'slug' => $args['slug'] ],
             'menu_icon'         => $args['icon'],
             'supports'          => $args['supports'],

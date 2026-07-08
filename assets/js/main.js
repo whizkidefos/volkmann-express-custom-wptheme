@@ -554,7 +554,7 @@
 
   /* ─── 7. COUNT-UP NUMBERS ────────────────────────────── */
   const CountUp = (() => {
-    function animateValue(el, start, end, duration, suffix) {
+    function animateValue(el, start, end, duration, suffix, appendSuffix = true) {
       const startTime = performance.now();
       const isFloat   = String(end).includes('.');
 
@@ -564,7 +564,8 @@
         // Ease out cubic
         const ease     = 1 - Math.pow(1 - progress, 3);
         const current  = start + (end - start) * ease;
-        el.textContent = isFloat ? current.toFixed(1) + suffix : Math.round(current) + suffix;
+        const valueText = isFloat ? current.toFixed(1) : String(Math.round(current));
+        el.textContent = appendSuffix ? valueText + suffix : valueText;
         if (progress < 1) requestAnimationFrame(update);
       }
       requestAnimationFrame(update);
@@ -578,8 +579,12 @@
           const rawVal = e.target.getAttribute('data-countup');
           const suffix = e.target.getAttribute('data-suffix') || '';
           const numEl  = e.target.querySelector('.ve-countup-num') || e.target.querySelector('.ve-achievement__value') || e.target;
+          const suffixEl = e.target.querySelector('.ve-countup-suffix');
           const end    = parseFloat(rawVal) || 0;
-          animateValue(numEl, 0, end, 1800, suffix);
+          if (suffixEl) {
+            suffixEl.textContent = suffix;
+          }
+          animateValue(numEl, 0, end, 1800, suffix, !suffixEl);
           io.unobserve(e.target);
         });
       }, { threshold: 0.5 });

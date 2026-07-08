@@ -1,0 +1,87 @@
+Volkmann Express Chatbot Training Guide
+
+This guide is for admin and editors to train and maintain the internal chatbot without code changes.
+
+Where Training Happens
+- WordPress Admin -> VE Leads -> Chatbot Q&A
+- Data source used by runtime: ve_chatbot_custom_qa option
+- Runtime endpoint: AJAX action ve_chatbot
+
+How Matching Works (Practical)
+- The bot reads your custom rows first (via scoring preference when relevance is tied).
+- It matches by keyword/phrase coverage, not exact full sentence equality.
+- It now tolerates small typos and close wording variants.
+- Built-in intents still exist as fallback for common questions.
+
+Add a New Training Row
+1. Open WordPress Admin -> VE Leads -> Chatbot Q&A.
+2. Click + Add Row.
+3. In Keywords / Phrases:
+- Enter comma-separated phrases users might type.
+- Add 5-12 realistic variants, not just one canonical phrase.
+4. In Answer:
+- Write one clear, final response ready for customers.
+- Keep it concise and actionable.
+5. Show CTA?
+- Check this when you want Contact Our Team shown.
+6. Click Save All.
+
+Keyword Authoring Best Practices
+- Use natural language users actually type.
+- Include abbreviations and expanded forms.
+- Include singular/plural forms where relevant.
+- Include known spelling variants.
+- Avoid extremely generic keywords (e.g., service, help) unless paired with specific phrases.
+
+Good example
+- Keywords: cmmc level 2, cmmc certification, dod compliance, c3pao prep, nist 800-171
+
+Weak example
+- Keywords: compliance
+
+Answer Writing Best Practices
+- First line: direct answer.
+- Second block: 2-4 concrete bullets or outcomes.
+- Last line: optional next step (consultation/contact).
+- Do not include uncertain claims.
+
+Testing After Every Save
+Run 6-10 probes in the frontend widget:
+1. Exact phrase test (copy one keyword exactly).
+2. Paraphrase test (same meaning, different wording).
+3. Typo test (minor misspelling).
+4. Short-form test (2-4 words).
+5. Competing-intent test (query that may match built-in intents).
+6. CTA test (ensure button appears only where intended).
+
+Expected result: your custom answer should win when intent is close.
+
+Troubleshooting
+- Custom answer not triggering:
+- Add more phrase variants to keywords.
+- Remove overly broad keywords that collide with many intents.
+- Make wording more specific to unique domain terms.
+
+- Wrong built-in answer wins:
+- Expand custom keywords with stronger domain phrases.
+- Add uncommon anchor terms likely absent from built-in intents.
+
+- Bot seems inconsistent:
+- Confirm changes were saved.
+- Clear page cache/CDN cache if enabled.
+- Retest in an incognito window.
+
+Governance Checklist (Weekly)
+- Review top missed questions from Chat Log.
+- Add/adjust 3-5 rows based on misses.
+- Retire outdated answers.
+- Verify all compliance and pricing language is current.
+
+Suggested QA Sign-off Template
+- Feature/intent trained:
+- Keywords added:
+- Answer approved by:
+- CTA enabled: Yes/No
+- Tested prompts:
+- Result: Pass/Fail
+- Date:
