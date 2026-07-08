@@ -5,9 +5,17 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'VE_VERSION', '1.0.0' );
+define( 'VE_VERSION', '1.0.1' );
 define( 'VE_DIR',     get_template_directory() );
 define( 'VE_URI',     get_template_directory_uri() );
+
+function ve_asset_version( string $relative_path ): string {
+    $full_path = VE_DIR . $relative_path;
+    if ( file_exists( $full_path ) ) {
+        return (string) filemtime( $full_path );
+    }
+    return VE_VERSION;
+}
 
 // ─── Theme setup ────────────────────────────────────────────────────────────
 
@@ -34,7 +42,7 @@ function ve_enqueue_assets() {
     // Inter font
     wp_enqueue_style( 've-inter', 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap', [], null );
     // Main stylesheet
-    wp_enqueue_style( 've-main', VE_URI . '/assets/css/main.css', [ 've-inter' ], VE_VERSION );
+    wp_enqueue_style( 've-main', VE_URI . '/assets/css/main.css', [ 've-inter' ], ve_asset_version( '/assets/css/main.css' ) );
     // Tailwind CDN
     wp_enqueue_script( 've-tailwind', 'https://cdn.tailwindcss.com', [], null, false );
     // GSAP + ScrollTrigger
@@ -46,7 +54,7 @@ function ve_enqueue_assets() {
     // Chart.js
     wp_enqueue_script( 've-chartjs',  'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',   [], '4.4.1',  true );
     // Main JS
-    wp_enqueue_script( 've-main',     VE_URI . '/assets/js/main.js', [ 've-gsap', 've-gsap-st', 've-three', 've-chartjs' ], VE_VERSION, true );
+    wp_enqueue_script( 've-main',     VE_URI . '/assets/js/main.js', [ 've-gsap', 've-gsap-st', 've-three', 've-chartjs' ], ve_asset_version( '/assets/js/main.js' ), true );
 
     wp_localize_script( 've-main', 'VE', [
         'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
@@ -58,15 +66,16 @@ function ve_enqueue_assets() {
 add_action( 'wp_enqueue_scripts', 've_enqueue_assets' );
 
 function ve_enqueue_admin_assets() {
-    wp_enqueue_style( 've-admin', VE_URI . '/assets/css/admin.css', [], VE_VERSION );
-    wp_enqueue_script( 've-admin', VE_URI . '/assets/js/admin.js', [ 'jquery' ], VE_VERSION, true );
+    wp_enqueue_style( 've-admin', VE_URI . '/assets/css/admin.css', [], ve_asset_version( '/assets/css/admin.css' ) );
+    wp_enqueue_script( 've-admin', VE_URI . '/assets/js/admin.js', [ 'jquery' ], ve_asset_version( '/assets/js/admin.js' ), true );
 }
 add_action( 'admin_enqueue_scripts', 've_enqueue_admin_assets' );
 
 // Tailwind config inline
 function ve_tailwind_config() { ?>
 <script>
-tailwind.config = {
+window.tailwind = window.tailwind || {};
+window.tailwind.config = {
     darkMode: 'class',
     theme: {
         extend: {
@@ -479,6 +488,12 @@ function ve_maybe_flush() {
         flush_rewrite_rules();
         delete_option('ve_needs_flush');
     }
+
+    $stored = get_option( 've_theme_version' );
+    if ( $stored !== VE_VERSION ) {
+        flush_rewrite_rules();
+        update_option( 've_theme_version', VE_VERSION );
+    }
 }
 add_action( 'init', 've_maybe_flush', 999 );
 
@@ -592,7 +607,7 @@ add_action( 'wp_head', 've_theme_color_meta', 2 );
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ve_login_enqueue_styles() {
-    wp_enqueue_style( 've-login', VE_URI . '/assets/css/login.css', [], VE_VERSION );
+    wp_enqueue_style( 've-login', VE_URI . '/assets/css/login.css', [], ve_asset_version( '/assets/css/login.css' ) );
 }
 add_action( 'login_enqueue_scripts', 've_login_enqueue_styles' );
 
