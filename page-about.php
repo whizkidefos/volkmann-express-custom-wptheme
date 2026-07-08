@@ -94,24 +94,37 @@ get_template_part( 'template-parts/hero', null, [
             <div class="ve-badge">Track Record</div>
             <h2 class="ve-section-title">Numbers That <span class="ve-text-gradient">Speak</span></h2>
         </div>
-        <div class="ve-achievements-grid ve-achievements-grid--centered">
-            <?php
-            $achievements = [
-                [ 'value' => '200',   'label' => 'Enterprise Clients',         'suffix' => '+' ],
-                [ 'value' => '98',    'label' => 'Client Retention Rate',       'suffix' => '%' ],
-                [ 'value' => '12',    'label' => 'Industries Served',           'suffix' => '+' ],
-                [ 'value' => '2',     'label' => 'Billion in Client Value',     'suffix' => 'B+' ],
-                [ 'value' => '150',   'label' => 'Technology Specialists',      'suffix' => '+' ],
-                [ 'value' => '500',   'label' => 'Successful Deployments',      'suffix' => '+' ],
-            ];
-            foreach ( $achievements as $a ) : ?>
-            <div class="ve-achievement ve-reveal" data-countup="<?= esc_attr($a['value']) ?>" data-suffix="<?= esc_attr($a['suffix']) ?>">
-                <span class="ve-achievement__value">
-                    <span class="ve-countup-num"><?= esc_html($a['value']) ?></span><span class="ve-countup-suffix"><?= esc_html($a['suffix']) ?></span>
-                </span>
-                <span class="ve-achievement__label"><?= esc_html($a['label']) ?></span>
+        <div class="ve-kpi-board ve-reveal">
+            <div class="ve-kpi-board__intro">
+                <p class="ve-kpi-board__eyebrow">Performance Snapshot</p>
+                <h3 class="ve-kpi-board__title">Measured Outcomes Across Every Engagement</h3>
+                <p class="ve-kpi-board__copy">We track delivery against business impact, not vanity metrics. These figures reflect active client outcomes across enterprise programs in strategy, engineering, security, and modernization.</p>
+                <a href="<?= esc_url( home_url('/case-studies') ) ?>" class="ve-btn ve-btn--secondary ve-kpi-board__cta">Review Case Studies</a>
             </div>
-            <?php endforeach; ?>
+
+            <?php
+            $kpis = [
+                [ 'display' => '200+', 'label' => 'Enterprise Clients',      'rail' => '88%' ],
+                [ 'display' => '98%',  'label' => 'Client Retention Rate',    'rail' => '98%' ],
+                [ 'display' => '12+',  'label' => 'Industries Served',        'rail' => '72%' ],
+                [ 'display' => '2B+',  'label' => 'Billion in Client Value',  'rail' => '92%' ],
+                [ 'display' => '150+', 'label' => 'Technology Specialists',   'rail' => '81%' ],
+                [ 'display' => '500+', 'label' => 'Successful Deployments',   'rail' => '95%' ],
+            ];
+            ?>
+            <div class="ve-kpi-board__metrics" aria-label="Key company metrics">
+                <?php foreach ( $kpis as $kpi ) : ?>
+                <article class="ve-kpi-item">
+                    <div class="ve-kpi-item__top">
+                        <span class="ve-kpi-item__value"><?= esc_html( $kpi['display'] ) ?></span>
+                        <span class="ve-kpi-item__label"><?= esc_html( $kpi['label'] ) ?></span>
+                    </div>
+                    <div class="ve-kpi-item__rail" aria-hidden="true">
+                        <span class="ve-kpi-item__fill" style="--ve-kpi-fill: <?= esc_attr( $kpi['rail'] ) ?>;"></span>
+                    </div>
+                </article>
+                <?php endforeach; ?>
+            </div>
         </div>
     </div>
 </section>

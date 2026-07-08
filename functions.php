@@ -564,6 +564,11 @@ add_filter( 'script_loader_tag', 've_defer_scripts', 10, 2 );
 // ─── Performance: Remove query strings from static resources ─────────────────
 
 function ve_remove_query_strings( $src ) {
+    // Keep version parameters for local theme assets to support cache busting.
+    if ( str_starts_with( $src, VE_URI ) ) {
+        return $src;
+    }
+
     if ( strpos( $src, '?ver=' ) !== false ) {
         $src = remove_query_arg( 'ver', $src );
     }
